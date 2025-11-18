@@ -108,7 +108,12 @@ async def process_epoch(config, current_block, metagraph, subtensor, wallet):
             boltz = BoltzWrapper()
             bt.logging.info("Boltz model initialized successfully")
         
+        # Score molecules against target protein
         boltz.score_molecules_target(valid_molecules_by_uid, score_dict, config, final_block_hash)
+        
+        # Score molecules against antitarget proteins
+        if antitarget_proteins:
+            boltz.score_molecules_antitarget(valid_molecules_by_uid, score_dict, config, final_block_hash, antitarget_proteins)
 
         # Calculate final scores (Boltz only)
         score_dict = calculate_final_scores(

@@ -40,21 +40,37 @@ def calculate_final_scores(
     
     # Go through each UID scored
     for uid, data in valid_molecules_by_uid.items():
-        boltz_score = score_dict[uid]['boltz_score']
-        entropy_boltz = score_dict[uid]['entropy_boltz']
+        target_score = score_dict[uid].get('boltz_score')  # Original target binding score
+        antitarget_score = score_dict[uid].get('antitarget_score')
+        entropy_boltz = score_dict[uid].get('entropy_boltz')
         threshold_boltz = config.get('entropy_bonus_threshold')
+        antitarget_weight = config.get('antitarget_weight', 0.9)
 
-        # Apply entropy bonus if conditions are met
+        # Combine target and antitarget scores
+        # Higher target binding is good, higher antitarget binding is bad
+        if target_score is not None and math.isfinite(target_score):
+            if antitarget_score is not None and math.isfinite(antitarget_score):
+                # Penalize antitarget binding: final_score = target_score - (antitarget_weight * antitarget_score)
+                combined_score = target_score - (antitarget_weight * antitarget_score)
+                score_dict[uid]['boltz_score'] = combined_score
+                bt.logging.debug(f"UID={uid}: target={target_score:.4f}, antitarget={antitarget_score:.4f}, combined={combined_score:.4f}")
+            else:
+                # No antitarget score available, use target score only
+                score_dict[uid]['boltz_score'] = target_score
+        else:
+            score_dict[uid]['boltz_score'] = -math.inf
+
+        # Apply entropy bonus if conditions are met (only if multiple molecules)
         if (
-            boltz_score is not None
+            score_dict[uid]['boltz_score'] is not None
             and entropy_boltz is not None
-            and math.isfinite(boltz_score)
+            and math.isfinite(score_dict[uid]['boltz_score'])
             and math.isfinite(entropy_boltz)
-            and boltz_score > threshold_boltz
+            and score_dict[uid]['boltz_score'] > threshold_boltz
             and entropy_boltz > 0
             and config['num_molecules_boltz'] > 1
         ):
-            score_dict[uid]['boltz_score'] = boltz_score * (1 + (dynamic_entropy_weight * entropy_boltz))
+            score_dict[uid]['boltz_score'] = score_dict[uid]['boltz_score'] * (1 + (dynamic_entropy_weight * entropy_boltz))
 
         # Log details
         smiles_list = data.get('smiles', [])
@@ -63,8 +79,10 @@ def calculate_final_scores(
             f"UID={uid}",
             f"  Molecule names: {names_list}",
             f"  SMILES: {smiles_list}",
-            f"  Boltz scores: {score_dict[uid]['boltz_score']}",
+            f"  Final Boltz score: {score_dict[uid]['boltz_score']}",
         ]
+        if antitarget_score is not None and math.isfinite(antitarget_score):
+            log_lines.append(f"  (Target: {target_score:.4f}, Antitarget: {antitarget_score:.4f}, Weight: {antitarget_weight})")
         bt.logging.info("\n".join(log_lines))
 
     return score_dict

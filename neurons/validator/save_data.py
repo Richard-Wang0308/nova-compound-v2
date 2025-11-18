@@ -76,6 +76,7 @@ def _build_submissions_payload(config, metagraph, boltz, current_block: int, sta
 
         entropy = score_dict.get(uid, {}).get('entropy')
         boltz_score = score_dict.get(uid, {}).get('boltz_score')
+        antitarget_score = score_dict.get(uid, {}).get('antitarget_score')
         boltz_entropy = score_dict.get(uid, {}).get('entropy_boltz')
 
         boltz_selected_flags = _get_boltz_selected_map_for_uid(boltz, uid, smiles_list)
@@ -108,6 +109,7 @@ def _build_submissions_payload(config, metagraph, boltz, current_block: int, sta
             "molecules": molecule_details,
             "entropy": (entropy if (entropy is not None and boltz_score is not None and math.isfinite(boltz_score) and boltz_score > getattr(config, 'entropy_bonus_threshold', 0.0)) else 0),
             "final_boltz_score": (None if boltz_score is None else _safe_num(float(boltz_score))),
+            "antitarget_score": (None if antitarget_score is None else _safe_num(float(antitarget_score))),
             "boltz_entropy": (None if boltz_entropy is None else float(boltz_entropy)),
         })
 
